@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "varibad-torch-experiments"
+version = "0.1.0"
+description = "VariBAD (variational Bayes-adaptive deep RL) in PyTorch on the RL2-Torch-Experiments environments"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1.0",
+    "numpy>=1.26",
+    "gymnasium==1.2.3",
+]
+
+[project.optional-dependencies]
+# HalfCheetah experiment: uv sync --extra mujoco
+mujoco = ["mujoco>=3.4.0"]
+# Rendering CartPole / Pendulum and plotting in notebooks: uv sync --extra extras
+extras = ["pygame>=2.6.1", "matplotlib>=3.8", "scipy>=1.11", "scikit-learn"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["agents", "utils"]
+py-modules = ["train"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "experiments"]
+markers = ["slow: end-to-end checks that take about a minute (run with: pytest -m slow)"]
+addopts = "-m 'not slow'"
