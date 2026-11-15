@@ -12,6 +12,7 @@ dependencies = [
     "torch>=2.1.0",
     "numpy>=1.26",
     "gymnasium==1.2.3",
+    "imageio>=2.38.0",
 ]
 
 [project.optional-dependencies]
