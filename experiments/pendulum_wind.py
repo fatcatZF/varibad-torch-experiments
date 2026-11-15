@@ -144,4 +144,13 @@ if __name__ == "__main__":
         eval_tasks_count=16,
         eval_episodes=2,
         lr_policy=0.0003,
+        # With the paper's PPO settings (2 epochs x 4 minibatches = 8 gradient steps per update) the policy
+        # did not learn Pendulum in 500 updates.  These settings reached about -200 within 40 updates:
+        ppo_epochs=10,
+        ppo_minibatches=16,
+        clip=0.2,
+        ent_coef=0.005,
+        value_loss="mse",
+        rl_reward_scale=0.05,                 # per-step cost reaches -16; scale it for the RL loss only
+        cut_returns_at_episode_end=False,     # Pendulum only ever ends by the 200-step time limit
     )

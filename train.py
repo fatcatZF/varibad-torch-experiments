@@ -65,10 +65,12 @@ def collect_rollout(model, envs, buffer: RolloutBuffer, horizon: int, device, is
 
 def ppo_update(model, optimizer, data: Dict[str, torch.Tensor], is_discrete: bool, action_low, action_high,
                epochs: int, minibatches: int, clip: float, vf_coef: float, ent_coef: float,
-               max_grad_norm: float) -> Dict[str, float]:
+               max_grad_norm: float, value_loss: str = "mse") -> Dict[str, float]:
     """PPO on flattened ``(T*N, ...)`` data.  The belief is a fixed input, so the policy is feed-forward.
 
-    The value loss is a Huber loss (paper, Appendix C.6).
+    ``value_loss``: ``"mse"`` (default, as in RL2-Torch-Experiments) or ``"huber"`` (paper, Appendix C.6).
+    Huber has a gradient capped at 1 per sample, so it fits returns of large scale (e.g. Pendulum,
+    returns of a few hundred) very slowly unless rewards are scaled down (``rl_reward_scale``).
     """
     model.train()
     n = data["adv"].shape[0]
@@ -89,7 +91,8 @@ def ppo_update(model, optimizer, data: Dict[str, torch.Tensor], is_discrete: boo
             adv = (adv - adv.mean()) / (adv.std() + 1e-8)
             ratio = torch.exp(new_lp - data["logp"][idx])
             pi_loss = -torch.min(ratio * adv, torch.clamp(ratio, 1 - clip, 1 + clip) * adv).mean()
-            vf_loss = F.smooth_l1_loss(val.squeeze(-1), data["ret"][idx])
+            vf_pred, vf_target = val.squeeze(-1), data["ret"][idx]
+            vf_loss = F.smooth_l1_loss(vf_pred, vf_target) if value_loss == "huber" else 0.5 * F.mse_loss(vf_pred, vf_target)
             entropy = dist.entropy().mean()
             loss = pi_loss + vf_coef * vf_loss - ent_coef * entropy
             optimizer.zero_grad(set_to_none=True)
@@ -127,6 +130,8 @@ def train_varibad(
     lam: float = 0.95,
     lr_policy: float = 7e-4,
     cut_returns_at_episode_end: bool = True,
+    value_loss: str = "mse",
+    rl_reward_scale: float = 1.0,
     # VAE hyper-parameters
     lr_vae: float = 1e-3,
     kl_weight: float = 0.1,
@@ -167,9 +172,9 @@ def train_varibad(
         envs.close()
         vae_buf.add(rollout.trajectories())
 
-        rollout.compute_gae(last_v, gamma, lam, cut_returns_at_episode_end)
+        rollout.compute_gae(last_v, gamma, lam, cut_returns_at_episode_end, rl_reward_scale)
         ppo = ppo_update(model, opt_pi, rollout.flat(), is_discrete, action_low, action_high,
-                         ppo_epochs, ppo_minibatches, clip, vf_coef, ent_coef, max_grad_norm)
+                         ppo_epochs, ppo_minibatches, clip, vf_coef, ent_coef, max_grad_norm, value_loss)
 
         vae_stats: Dict[str, float] = {}
         model.train()

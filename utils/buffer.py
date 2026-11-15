@@ -54,7 +54,8 @@ class RolloutBuffer:
         return np.stack(self.data[key])
 
     @torch.no_grad()
-    def compute_gae(self, last_value: torch.Tensor, gamma: float, lam: float, cut_at_episode_end: bool = True) -> None:
+    def compute_gae(self, last_value: torch.Tensor, gamma: float, lam: float, cut_at_episode_end: bool = True,
+                    reward_scale: float = 1.0) -> None:
         """Generalised advantage estimation over the whole BAMDP trajectory.
 
         Parameters
@@ -68,7 +69,7 @@ class RolloutBuffer:
         """
         T, N = len(self), self.data["rew"][0].shape[0]
         f = lambda k: torch.as_tensor(self.stacked(k), device=self.device, dtype=torch.float32).view(T, N)
-        vals, rews, dones = f("val"), f("rew"), f("done")
+        vals, rews, dones = f("val"), f("rew") * reward_scale, f("done")
         full = torch.cat([vals, last_value.view(1, N).to(self.device)], dim=0)
         adv = torch.zeros(T, N, device=self.device)
         gae = torch.zeros(N, device=self.device)
